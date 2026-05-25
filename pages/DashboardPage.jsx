@@ -1,50 +1,47 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { productosApi } from '../api/entities.api'
-import { clientesApi } from '../api/entities.api'
-import { pedidosApi } from '../api/entities.api'
-import { stockApi } from '../api/entities.api'
-import { StatCard, Badge, Spinner } from '../components/ui/index.jsx'
+import { useEffect, useState } from 'react' // Hooks de efecto y estado.
+import { useNavigate } from 'react-router-dom' // Hook para navegar entre secciones.
+import { useAuth } from '../context/AuthContext' // Obtiene datos del usuario logueado.
+import { productosApi, clientesApi, pedidosApi, stockApi } from '../api/entities.api' // Servicios de comunicación con el Backend.
+import { StatCard, Badge, Spinner } from '../components/ui/index.jsx' // Componentes de métricas y carga.
 
 export function DashboardPage() {
-  const { usuario } = useAuth()
+  const { usuario } = useAuth() // Extrae el objeto usuario del contexto.
   const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [pedidosRecientes, setPedidosRecientes] = useState([])
-  const [bajoStock, setBajoStock] = useState([])
-  const [cargando, setCargando] = useState(true)
+  const [stats, setStats] = useState(null) // Almacena conteos e ingresos calculados.
+  const [pedidosRecientes, setPedidosRecientes] = useState([]) // Lista corta de los últimos pedidos.
+  const [bajoStock, setBajoStock] = useState([]) // Lista de productos en estado crítico.
+  const [cargando, setCargando] = useState(true) // Estado de carga global de la página.
 
-  useEffect(() => {
-    Promise.all([
+  useEffect(() => { // Se ejecuta al montar la página.
+    Promise.all([ // Dispara 4 peticiones HTTP en paralelo para mayor velocidad.
       productosApi.getAll(),
       clientesApi.getAll(),
       pedidosApi.getAll(),
       stockApi.getBajoStock(),
-    ]).then(([prod, cli, ped, stock]) => {
-      const pedidos = ped.data.data || []
-      setStats({
+    ]).then(([prod, cli, ped, stock]) => { // Una vez que terminan todas:
+      const pedidos = ped.data.data || [] // Extrae la data de pedidos.
+      setStats({ // Calcula los números que irán en las tarjetas superiores.
         productos: (prod.data.data || []).length,
         clientes:  (cli.data.data || []).length,
         pedidos:   pedidos.length,
-        ingresos:  pedidos.reduce((acc, p) => acc + (p.total || 0), 0),
+        ingresos:  pedidos.reduce((acc, p) => acc + (p.total || 0), 0), // Suma los totales de todos los pedidos.
       })
-      setPedidosRecientes(pedidos.slice(0, 5))
-      setBajoStock(stock.data.data || [])
-    }).catch(console.error)
-      .finally(() => setCargando(false))
+      setPedidosRecientes(pedidos.slice(0, 5)) // Guarda solo los 5 pedidos más nuevos.
+      setBajoStock(stock.data.data || []) // Guarda los productos con poco inventario.
+    }).catch(console.error) // Registra errores si alguna petición falla.
+      .finally(() => setCargando(false)) // Quita el spinner de carga al terminar.
   }, [])
 
-  if (cargando) return <Spinner />
+  if (cargando) return <Spinner /> // Pantalla de carga inicial.
 
-  const ESTADO_LABELS = {
+  const ESTADO_LABELS = { // Mapeo para asignar variantes de color a los estados.
     pendiente: 'pendiente', procesando: 'procesando',
     enviado: 'enviado', entregado: 'entregado', cancelado: 'cancelado',
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Welcome */}
+      {/* Welcome: Saludo dinámico usando el primer nombre del usuario */}
       <div>
         <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>
           Bienvenido, {usuario?.nombre?.split(' ')[0]} 👋
@@ -54,7 +51,7 @@ export function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats */}
+      {/* Stats: Renderiza las 4 tarjetas de métricas si existen los datos */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
@@ -101,7 +98,7 @@ export function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent orders */}
+        {/* Recent orders: Muestra los últimos 5 pedidos procesados */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -145,7 +142,7 @@ export function DashboardPage() {
           )}
         </div>
 
-        {/* Low stock alert */}
+        {/* Low stock alert: Notifica productos con inventario por debajo del mínimo */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -172,15 +169,16 @@ export function DashboardPage() {
                   style={{ borderColor: 'var(--border-subtle)' }}
                 >
                   <p className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
-                    {s.productoId?.slice(-8)}
+                    {s.productoId?.slice(-8)} {/* ID corto del producto con stock bajo */}
                   </p>
                   <div className="flex items-center gap-2">
+                    {/* Barra de progreso visual para el stock */}
                     <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${Math.min((s.cantidad / (s.stockMinimo || 1)) * 100, 100)}%`,
-                          background: s.cantidad === 0 ? '#ef4444' : '#f97316',
+                          width: `${Math.min((s.cantidad / (s.stockMinimo || 1)) * 100, 100)}%`, // Calcula el porcentaje respecto al mínimo.
+                          background: s.cantidad === 0 ? '#ef4444' : '#f97316', // Rojo si es cero, naranja si es bajo.
                         }}
                       />
                     </div>

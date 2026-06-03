@@ -402,6 +402,19 @@ export function PedidosPage() {
         />
       )}
 
+      {/* MODAL: Crear nuevo pedido */}
+{modalCrear && (
+  <Modal title="Nuevo pedido" onClose={() => setModalCrear(false)} maxWidth="max-w-2xl">
+    <PedidoForm
+      clientes={clientes}
+      productos={productos}
+      onSubmit={handleCrear}
+      onCancel={() => setModalCrear(false)}
+      loading={loadingAction}
+    />
+  </Modal>
+)}
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   )

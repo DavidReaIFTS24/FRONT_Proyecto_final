@@ -101,13 +101,9 @@ export const stockApi = {
 
 // ─── USUARIOS (ADMINISTRACIÓN) ───────────────────────────────────────────────
 export const usuariosApi = {
-  // Lista de usuarios registrados en el sistema
-  getAll: () => axiosClient.get('/usuarios'),
-  
-  getById: (id) => axiosClient.get(`/usuarios/${id}`),
-  
-  // Actualizar perfil o cambiar roles (admin, vendedor, etc.)
-  update: (id, data) => axiosClient.put(`/usuarios/${id}`, data),
-  
-  delete: (id) => axiosClient.delete(`/usuarios/${id}`),
-};
+  getAll:   ()         => axiosClient.get('/usuarios'),
+  getById:  (id)       => axiosClient.get(`/usuarios/${id}`),
+  create:   (data)     => axiosClient.post('/usuarios', data),   // ← nuevo
+  update:   (id, data) => axiosClient.put(`/usuarios/${id}`, data),
+  delete:   (id)       => axiosClient.delete(`/usuarios/${id}`),
+}

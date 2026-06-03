@@ -176,6 +176,11 @@ export function useUsuarios() {
     await usuariosApi.delete(id)
     setData(prev => prev.filter(u => u.id !== id))
   }
+  const crear = async (datos) => {
+    const res = await usuariosApi.create(datos)
+    setData(prev => [...prev, res.data.data])
+    return res.data.data
+  }
 
-  return { usuarios, cargando, error, refetch, actualizar, eliminar }
+  return { usuarios, cargando, error, refetch, crear, actualizar, eliminar }
 }

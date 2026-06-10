@@ -1,6 +1,7 @@
 import { useState } from 'react' // Importa el hook para manejar el estado local del formulario.
 import { useCategorias } from '../hooks/useEntities' // Hook para las operaciones CRUD de categorías.
 import { useToast } from '../hooks/useToast' // Hook para disparar alertas visuales.
+import { useAuth } from '../context/AuthContext' // Hook para obtener el usuario y su rol.
 import {
   Button, Input, Textarea, Modal, ConfirmDialog,
   Table, Td, Spinner, ErrorState, EmptyState,
@@ -66,11 +67,14 @@ export function CategoriasPage() {
   // Obtiene datos y funciones operativas desde el hook de lógica de negocio.
   const { categorias, cargando, error, refetch, crear, actualizar, eliminar } = useCategorias()
   const { toast, showToast, hideToast } = useToast() // Control de notificaciones emergentes.
+  const { usuario } = useAuth() // Obtiene el usuario logueado para verificar su rol.
+  const esAdmin = usuario?.rol === 'admin' // true si es admin, false si es empleado u otro rol.
 
   // Estados para controlar la visibilidad de ventanas emergentes (modales).
   const [modalCrear, setModalCrear]   = useState(false) // Controla el modal de creación.
   const [editando, setEditando]       = useState(null) // Almacena la categoría que se está editando.
   const [eliminando, setEliminando]   = useState(null) // Almacena la categoría que se pretende borrar.
+  const [viendo, setViendo]           = useState(null) // Almacena la categoría para ver en modo solo lectura.
   const [loadingAction, setLoadingAction] = useState(false) // Estado de carga para botones durante la espera de la API.
 
   // Lógica para enviar una nueva categoría al servidor.
@@ -119,12 +123,14 @@ export function CategoriasPage() {
         title="Categorías"
         subtitle={`${categorias.length} categorías registradas`}
         action={
-          <Button onClick={() => setModalCrear(true)}> {/* Botón principal para disparar el modal */}
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nueva categoría
-          </Button>
+          esAdmin && (
+            <Button onClick={() => setModalCrear(true)}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Nueva categoría
+            </Button>
+          )
         }
       />
 
@@ -133,7 +139,7 @@ export function CategoriasPage() {
         <EmptyState
           title="Sin categorías"
           subtitle="Creá la primera categoría para organizar tus productos"
-          action={<Button onClick={() => setModalCrear(true)}>Crear categoría</Button>}
+          action={esAdmin ? <Button onClick={() => setModalCrear(true)}>Crear categoría</Button> : null}
         />
       ) : (
         <Table headers={['Nombre', 'Descripción', 'Estado', 'Creada', 'Acciones']}>
@@ -155,12 +161,20 @@ export function CategoriasPage() {
               </Td>
               <Td>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" className="py-1 px-2 text-xs" onClick={() => setEditando(cat)}>
-                    Editar
-                  </Button>
-                  <Button variant="danger" className="py-1 px-2 text-xs" onClick={() => setEliminando(cat)}>
-                    Eliminar
-                  </Button>
+                  {esAdmin ? (
+                    <>
+                      <Button variant="ghost" className="py-1 px-2 text-xs" onClick={() => setEditando(cat)}>
+                        Editar
+                      </Button>
+                      <Button variant="danger" className="py-1 px-2 text-xs" onClick={() => setEliminando(cat)}>
+                        Eliminar
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="ghost" className="py-1 px-2 text-xs" onClick={() => setViendo(cat)}>
+                      Ver detalle
+                    </Button>
+                  )}
                 </div>
               </Td>
             </tr>
@@ -181,6 +195,35 @@ export function CategoriasPage() {
       {editando && (
         <Modal title="Editar categoría" onClose={() => setEditando(null)}>
           <CategoriaForm inicial={editando} onSubmit={handleActualizar} onCancel={() => setEditando(null)} loading={loadingAction} />
+        </Modal>
+      )}
+
+      {/* Modal de Solo Lectura (empleados) */}
+      {viendo && (
+        <Modal title="Detalle de categoría" onClose={() => setViendo(null)}>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Nombre</p>
+              <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{viendo.nombre}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Descripción</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{viendo.descripcion || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Estado</p>
+              <Badge label={viendo.activa ? 'activa' : 'inactiva'} variant={viendo.activa ? 'activo' : 'inactivo'} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Fecha de creación</p>
+              <p className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
+                {viendo.fechaCreacion ? new Date(viendo.fechaCreacion).toLocaleDateString('es-AR') : '—'}
+              </p>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button variant="ghost" onClick={() => setViendo(null)}>Cerrar</Button>
+            </div>
+          </div>
         </Modal>
       )}
 

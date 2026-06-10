@@ -1,154 +1,263 @@
-import { useState, useMemo } from 'react' // Importación de hooks fundamentales: estado local y optimización de cálculos.
-import { useProductos, useCategorias } from '../hooks/useEntities' // Hooks personalizados para el CRUD de productos y carga de categorías.
-import { useToast } from '../hooks/useToast' // Hook para disparar alertas visuales (éxito/error).
+import { useState, useMemo } from 'react'
+import { useProductos, useCategorias } from '../hooks/useEntities'
+import { useToast } from '../hooks/useToast'
+import { imagenesApi } from '../api/entities.api'
 import {
   Button, Input, Select, Textarea, Modal, ConfirmDialog,
   Table, Td, Spinner, ErrorState, EmptyState,
   PageHeader, Toast, Badge,
-} from '../components/ui/index.jsx' // Componentes de la librería de UI interna.
+} from '../components/ui/index.jsx'
 
-// ─── COMPONENTE: FORMULARIO DE PRODUCTO ───────────────────────────────────────
-// Se encarga de capturar los datos tanto para creación como para edición.
+// ─── FORMULARIO DE PRODUCTO ───────────────────────────────────────────────────
 function ProductoForm({ inicial, categorias, onSubmit, onCancel, loading }) {
-  // Inicializa el estado con los datos del producto si estamos editando, o campos vacíos si es nuevo.
   const [form, setForm] = useState(
-    inicial || { nombre: '', descripcion: '', precio: '', categoriaId: '', color: '', material: '', dimensiones: '', imagen: '' }
+    inicial || {
+      nombre: '', descripcion: '', precio: '', categoriaId: '',
+      color: '', material: '', dimensiones: '', imagen: '', imagenPublicId: '',
+    }
   )
-  // Estado para capturar y mostrar mensajes de validación bajo cada input.
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors]           = useState({})
+  const [subiendoImagen, setSubiendo] = useState(false)
+  const [errorImagen, setErrorImagen] = useState('')
+  const [uploadProgress, setProgress] = useState(0)
 
-  // Función interna para validar reglas de negocio antes de enviar al servidor.
   const validate = () => {
     const e = {}
-    if (!form.nombre.trim())     e.nombre      = 'El nombre es requerido' // Verifica texto no vacío.
-    if (!form.precio || isNaN(form.precio) || Number(form.precio) <= 0) e.precio = 'Precio válido requerido' // Valida número positivo.
-    if (!form.categoriaId)       e.categoriaId = 'Seleccioná una categoría' // Obliga a elegir categoría.
+    if (!form.nombre.trim())   e.nombre      = 'El nombre es requerido'
+    if (!form.precio || isNaN(form.precio) || Number(form.precio) <= 0)
+                               e.precio      = 'Precio válido requerido'
+    if (!form.categoriaId)     e.categoriaId = 'Seleccioná una categoría'
     return e
   }
 
-  // Actualiza el estado 'form' dinámicamente según el atributo 'name' del input que cambió.
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setErrors(prev => ({ ...prev, [e.target.name]: '' })) // Limpia el error del campo al escribir.
+    setErrors(prev => ({ ...prev, [e.target.name]: '' }))
   }
 
-  // Procesa el envío: valida y luego ejecuta la acción del componente padre.
+  const handleImagenChange = async (e) => {
+    const archivo = e.target.files[0]
+    if (!archivo) return
+
+    if (archivo.size > 5 * 1024 * 1024) {
+      setErrorImagen('La imagen no puede superar 5 MB')
+      return
+    }
+
+    setErrorImagen('')
+    setSubiendo(true)
+    setProgress(0)
+
+    // Simula progreso visual mientras sube
+    const timer = setInterval(() => setProgress(p => Math.min(p + 15, 85)), 200)
+
+    try {
+      const res = await imagenesApi.upload(archivo)
+      const { url, public_id } = res.data.data
+      setForm(prev => ({ ...prev, imagen: url, imagenPublicId: public_id }))
+      setProgress(100)
+    } catch (err) {
+      setErrorImagen('Error al subir la imagen. Intentá de nuevo.')
+      console.error(err)
+    } finally {
+      clearInterval(timer)
+      setSubiendo(false)
+    }
+  }
+
   const handleSubmit = (e) => {
-    e.preventDefault() // Evita recarga de página.
-    const e2 = validate() // Ejecuta validaciones.
-    if (Object.keys(e2).length) { setErrors(e2); return } // Si hay errores, detiene el proceso.
-    onSubmit({ ...form, precio: Number(form.precio) }) // Envía los datos asegurando que el precio sea numérico.
+    e.preventDefault()
+    const e2 = validate()
+    if (Object.keys(e2).length) { setErrors(e2); return }
+    onSubmit({ ...form, precio: Number(form.precio) })
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        {/* Input para nombre con manejo de error visual */}
         <Input label="Nombre *" name="nombre" value={form.nombre} onChange={handleChange}
-          placeholder="Ej: Silla de oficina" error={errors.nombre} />
-        {/* Input numérico para precio */}
+          placeholder="Ej: Billetera de cuero" error={errors.nombre} />
         <Input label="Precio *" name="precio" type="number" min="0" step="0.01"
           value={form.precio} onChange={handleChange} placeholder="0.00" error={errors.precio} />
       </div>
-      {/* Selector dinámico de categorías cargadas desde la API */}
+
       <Select label="Categoría *" name="categoriaId" value={form.categoriaId}
         onChange={handleChange} error={errors.categoriaId}>
         <option value="">Seleccionar categoría...</option>
         {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
       </Select>
-      {/* Área de texto para la descripción larga */}
+
       <Textarea label="Descripción" name="descripcion" value={form.descripcion}
         onChange={handleChange} placeholder="Descripción del producto..." />
+
       <div className="grid grid-cols-3 gap-4">
-        {/* Campos adicionales de características físicas */}
-        <Input label="Color" name="color" value={form.color} onChange={handleChange} placeholder="Ej: Negro" />
-        <Input label="Material" name="material" value={form.material} onChange={handleChange} placeholder="Ej: Madera" />
-        <Input label="Dimensiones" name="dimensiones" value={form.dimensiones} onChange={handleChange} placeholder="Ej: 80x60cm" />
+        <Input label="Color"      name="color"       value={form.color}       onChange={handleChange} placeholder="Ej: Negro" />
+        <Input label="Material"   name="material"    value={form.material}    onChange={handleChange} placeholder="Ej: Cuero" />
+        <Input label="Dimensiones" name="dimensiones" value={form.dimensiones} onChange={handleChange} placeholder="Ej: 20x10cm" />
       </div>
-      {/* Campo para la ruta de la imagen del producto */}
-      <Input label="URL Imagen" name="imagen" value={form.imagen} onChange={handleChange}
-        placeholder="https://..." />
+
+      {/* ── Subida de imagen a Cloudinary ─────────────────────────────────── */}
+      <div>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+          Imagen del producto
+        </label>
+
+        <div className="flex items-start gap-4">
+          {/* Preview */}
+          <div
+            className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}
+          >
+            {form.imagen ? (
+              <img src={form.imagen} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-4xl">📦</span>
+            )}
+          </div>
+
+          <div className="flex-1 space-y-2">
+            {/* Botón de carga */}
+            <label
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer text-sm font-medium transition-all"
+              style={{
+                borderColor:  subiendoImagen ? 'var(--accent)' : 'var(--border-subtle)',
+                color:        subiendoImagen ? 'var(--accent)' : 'var(--text-secondary)',
+                background:   'var(--bg-secondary)',
+                opacity:      subiendoImagen ? 0.8 : 1,
+              }}
+            >
+              {subiendoImagen ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Subiendo a Cloudinary...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  {form.imagen ? 'Cambiar imagen' : 'Subir imagen'}
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImagenChange}
+                disabled={subiendoImagen}
+              />
+            </label>
+
+            {/* Barra de progreso */}
+            {subiendoImagen && (
+              <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%`, background: 'var(--accent)' }}
+                />
+              </div>
+            )}
+
+            {errorImagen && (
+              <p className="text-xs" style={{ color: '#f87171' }}>⚠ {errorImagen}</p>
+            )}
+
+            {form.imagen && !subiendoImagen && (
+              <p className="text-xs" style={{ color: '#4ade80' }}>
+                ✓ Imagen subida a Cloudinary
+              </p>
+            )}
+
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              JPG, PNG, WebP · Máx. 5 MB · Se optimiza automáticamente
+            </p>
+          </div>
+        </div>
+      </div>
+      {/* ──────────────────────────────────────────────────────────────────── */}
+
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        {/* Botón dinámico que muestra spinner si 'loading' es true */}
-        <Button type="submit" loading={loading}>{inicial ? 'Guardar cambios' : 'Crear producto'}</Button>
+        <Button type="submit" loading={loading || subiendoImagen}>
+          {inicial ? 'Guardar cambios' : 'Crear producto'}
+        </Button>
       </div>
     </form>
   )
 }
 
-// ─── COMPONENTE PRINCIPAL: PÁGINA DE PRODUCTOS ────────────────────────────────
+// ─── PÁGINA DE PRODUCTOS ──────────────────────────────────────────────────────
 export function ProductosPage() {
-  // Desestructuración de métodos y estados del hook de productos (Llamadas a API).
   const { productos, cargando, error, refetch, crear, actualizar, eliminar } = useProductos()
-  // Carga de categorías para usar en filtros y formularios.
   const { categorias } = useCategorias()
-  // Funciones para el control de notificaciones flotantes.
   const { toast, showToast, hideToast } = useToast()
 
-  // Estados locales para controlar la visibilidad de los modales (Crear, Editar, Eliminar).
-  const [modalCrear, setModalCrear]     = useState(false)
-  const [editando, setEditando]         = useState(null)
-  const [eliminando, setEliminando]     = useState(null)
-  const [loadingAction, setLoadingAction] = useState(false) // Bloquea botones durante peticiones asíncronas.
-  const [busqueda, setBusqueda]         = useState('') // Texto del buscador.
-  const [filtroCategoria, setFiltroCategoria] = useState('') // ID de la categoría seleccionada en filtros.
+  const [modalCrear, setModalCrear]           = useState(false)
+  const [editando, setEditando]               = useState(null)
+  const [eliminando, setEliminando]           = useState(null)
+  const [loadingAction, setLoadingAction]     = useState(false)
+  const [busqueda, setBusqueda]               = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('')
 
-  // useMemo: Filtra la lista de productos de manera eficiente según búsqueda y categoría.
   const productosFiltrados = useMemo(() => {
     return productos.filter(p => {
       const matchBusqueda = p.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-      const matchCat = !filtroCategoria || p.categoriaId === filtroCategoria
+      const matchCat      = !filtroCategoria || p.categoriaId === filtroCategoria
       return matchBusqueda && matchCat
     })
   }, [productos, busqueda, filtroCategoria])
 
-  // Lógica para enviar un nuevo producto al servidor.
   const handleCrear = async (datos) => {
     setLoadingAction(true)
     try {
       await crear(datos)
-      setModalCrear(false) // Cierra modal al tener éxito.
+      setModalCrear(false)
       showToast('Producto creado exitosamente')
     } catch (err) {
       showToast(err.response?.data?.message || 'Error al crear', 'error')
     } finally { setLoadingAction(false) }
   }
 
-  // Lógica para actualizar un producto existente por ID.
   const handleActualizar = async (datos) => {
     setLoadingAction(true)
     try {
       await actualizar(editando.id, datos)
-      setEditando(null) // Cierra modal de edición.
+      setEditando(null)
       showToast('Producto actualizado')
     } catch (err) {
       showToast(err.response?.data?.message || 'Error al actualizar', 'error')
     } finally { setLoadingAction(false) }
   }
 
-  // Lógica para marcar un producto como eliminado/inactivo.
   const handleEliminar = async () => {
     setLoadingAction(true)
     try {
+      // Si el producto tiene imagen en Cloudinary, la eliminamos también
+      if (eliminando.imagenPublicId) {
+        await imagenesApi.delete(eliminando.imagenPublicId).catch(() => {
+          // Si falla el borrado en Cloudinary, no bloqueamos la eliminación del producto
+          console.warn('No se pudo eliminar la imagen de Cloudinary')
+        })
+      }
       await eliminar(eliminando.id)
-      setEliminando(null) // Cierra el diálogo de confirmación.
+      setEliminando(null)
       showToast('Producto eliminado')
     } catch (err) {
       showToast(err.response?.data?.message || 'Error al eliminar', 'error')
     } finally { setLoadingAction(false) }
   }
 
-  // Función auxiliar para traducir el UUID de categoría a un nombre legible.
   const getNombreCategoria = (id) => categorias.find(c => c.id === id)?.nombre || '—'
 
-  // Renders condicionales para estados globales de la página.
-  if (cargando) return <Spinner /> // Mientras la API responde.
-  if (error)    return <ErrorState message={error} onRetry={refetch} /> // Si falla la carga inicial.
+  if (cargando) return <Spinner />
+  if (error)    return <ErrorState message={error} onRetry={refetch} />
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Cabecera de la página con título, estadísticas y botón principal de acción */}
       <PageHeader
         title="Productos"
         subtitle={`${productosFiltrados.length} de ${productos.length} productos`}
@@ -162,7 +271,7 @@ export function ProductosPage() {
         }
       />
 
-      {/* Barra de herramientas: Filtros de búsqueda y categoría */}
+      {/* Filtros */}
       <div className="flex gap-3 flex-wrap">
         <Input
           placeholder="Buscar por nombre..."
@@ -170,15 +279,10 @@ export function ProductosPage() {
           onChange={e => setBusqueda(e.target.value)}
           className="max-w-xs"
         />
-        <Select
-          value={filtroCategoria}
-          onChange={e => setFiltroCategoria(e.target.value)}
-          className="max-w-xs"
-        >
+        <Select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)} className="max-w-xs">
           <option value="">Todas las categorías</option>
           {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </Select>
-        {/* Botón para resetear filtros si el usuario aplicó alguno */}
         {(busqueda || filtroCategoria) && (
           <Button variant="ghost" onClick={() => { setBusqueda(''); setFiltroCategoria('') }}>
             Limpiar filtros
@@ -186,7 +290,7 @@ export function ProductosPage() {
         )}
       </div>
 
-      {/* Renderizado condicional: Tabla con datos o pantalla de 'Sin resultados' */}
+      {/* Tabla */}
       {productosFiltrados.length === 0 ? (
         <EmptyState
           title="Sin productos"
@@ -197,41 +301,61 @@ export function ProductosPage() {
         <Table headers={['Producto', 'Categoría', 'Precio', 'Color / Material', 'Stock', 'Acciones']}>
           {productosFiltrados.map(prod => (
             <tr key={prod.id} className="table-row">
+              {/* Producto: miniatura Cloudinary + nombre */}
               <Td>
-                <div>
-                  {/* Nombre y descripción (truncada para no romper el diseño) */}
-                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{prod.nombre}</p>
-                  {prod.descripcion && (
-                    <p className="text-xs truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>
-                      {prod.descripcion}
-                    </p>
-                  )}
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center"
+                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    {prod.imagen ? (
+                      <img
+                        src={prod.imagen}
+                        alt={prod.nombre}
+                        className="w-full h-full object-cover"
+                        onError={e => {
+                          e.target.style.display = 'none'
+                          e.target.nextSibling.style.display = 'flex'
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: prod.imagen ? 'none' : 'flex' }} className="text-xl">📦</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{prod.nombre}</p>
+                    {prod.descripcion && (
+                      <p className="text-xs truncate max-w-[180px]" style={{ color: 'var(--text-muted)' }}>
+                        {prod.descripcion}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </Td>
+
               <Td>
-                {/* Badge con el nombre de la categoría resuelto mediante el helper */}
                 <Badge label={getNombreCategoria(prod.categoriaId)} variant="procesando" />
               </Td>
+
               <Td>
-                {/* Precio formateado a moneda local */}
                 <span className="font-mono font-semibold" style={{ color: '#4ade80' }}>
                   ${Number(prod.precio || 0).toLocaleString('es-AR')}
                 </span>
               </Td>
+
               <Td>
-                {/* Combinación de atributos físicos opcionales */}
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {[prod.color, prod.material].filter(Boolean).join(' · ') || '—'}
                 </span>
               </Td>
+
               <Td>
-                {/* Indicador visual de stock: cambia de color según la escasez */}
-                <span className="font-mono font-bold" style={{ color: prod.stock === 0 ? '#f87171' : prod.stock <= 5 ? '#fb923c' : '#4ade80' }}>
+                <span className="font-mono font-bold"
+                  style={{ color: prod.stock === 0 ? '#f87171' : prod.stock <= 5 ? '#fb923c' : '#4ade80' }}>
                   {prod.stock ?? '—'}
                 </span>
               </Td>
+
               <Td>
-                {/* Botones de acción rápida por fila */}
                 <div className="flex gap-2">
                   <Button variant="ghost" className="py-1 px-2 text-xs" onClick={() => setEditando(prod)}>
                     Editar
@@ -246,21 +370,18 @@ export function ProductosPage() {
         </Table>
       )}
 
-      {/* MODAL: Creación de nuevo producto */}
       {modalCrear && (
         <Modal title="Nuevo producto" onClose={() => setModalCrear(false)} maxWidth="max-w-2xl">
           <ProductoForm categorias={categorias} onSubmit={handleCrear} onCancel={() => setModalCrear(false)} loading={loadingAction} />
         </Modal>
       )}
 
-      {/* MODAL: Edición de producto (Se activa al pasar un objeto al estado 'editando') */}
       {editando && (
         <Modal title="Editar producto" onClose={() => setEditando(null)} maxWidth="max-w-2xl">
           <ProductoForm inicial={editando} categorias={categorias} onSubmit={handleActualizar} onCancel={() => setEditando(null)} loading={loadingAction} />
         </Modal>
       )}
 
-      {/* DIÁLOGO: Confirmación para eliminación física/lógica */}
       {eliminando && (
         <ConfirmDialog
           title="Eliminar producto"
@@ -271,7 +392,6 @@ export function ProductosPage() {
         />
       )}
 
-      {/* Alerta flotante global */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   )

@@ -152,13 +152,19 @@ export function useStock() {
     return res.data.data
   }
 
+  const descontar = async (productoId, cantidad) => { // Lógica para salida de mercadería.
+    const res = await stockApi.descontar(productoId, cantidad)
+    refetch()
+    return res.data.data
+  }
+
   const actualizar = async (id, datos) => { // Ajuste manual de stock o puntos mínimos.
     const res = await stockApi.update(id, datos)
     setData(prev => prev.map(s => s.id === id ? res.data.data : s))
     return res.data.data
   }
 
-  return { stocks, bajoStock, cargando, error, refetch, aumentar, actualizar }
+  return { stocks, bajoStock, cargando, error, refetch, aumentar, descontar, actualizar }
 }
 
 // ─── useUsuarios ───────────────────────────────────────────────────────────────

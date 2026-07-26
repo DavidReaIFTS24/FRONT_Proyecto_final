@@ -72,6 +72,7 @@ export const stockApi = {
   create:        (data)                 => axiosClient.post('/stock', data),
   update:        (id, data)             => axiosClient.put(`/stock/${id}`, data),
   aumentar:      (productoId, cantidad) => axiosClient.put(`/stock/aumentar/${productoId}`, { cantidad }),
+  descontar:     (productoId, cantidad) => axiosClient.put(`/stock/descontar/${productoId}`, { cantidad }),
   delete:        (id)                   => axiosClient.delete(`/stock/${id}`),
 };
 

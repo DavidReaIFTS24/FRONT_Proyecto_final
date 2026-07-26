@@ -1,6 +1,60 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
+// ─── LOGO MAGNUM ─────────────────────────────────────────────────────────────
+function MagnumLogo() {
+  return (
+    <svg viewBox="0 0 210 52" style={{ width: 175, height: 44 }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="mg-sidebar" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8"/>
+          <stop offset="100%" stopColor="#0284c7"/>
+        </linearGradient>
+      </defs>
+      {/* Círculo fondo */}
+      <circle cx="26" cy="26" r="22" fill="rgba(14,165,233,0.1)" stroke="rgba(14,165,233,0.25)" strokeWidth="0.8"/>
+      {/* M */}
+      <path
+        d="M13 38 L13 16 L26 30 L39 16 L39 38"
+        fill="none"
+        stroke="url(#mg-sidebar)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Barras de stock */}
+      <rect x="16" y="41" width="4" height="5"  rx="1" fill="#0ea5e9" fillOpacity="0.9"/>
+      <rect x="23" y="39" width="4" height="7"  rx="1" fill="#38bdf8" fillOpacity="0.9"/>
+      <rect x="30" y="43" width="4" height="3"  rx="1" fill="#0ea5e9" fillOpacity="0.7"/>
+      {/* Separador vertical */}
+      <line x1="58" y1="8" x2="58" y2="46" stroke="#0ea5e9" strokeOpacity="0.25" strokeWidth="0.8"/>
+      {/* Nombre */}
+      <text
+        x="68" y="33"
+        fontFamily="Syne, sans-serif"
+        fontWeight="700"
+        fontSize="22"
+        letterSpacing="-0.5"
+        fill="var(--text-primary, #f0f6ff)"
+      >
+        Magnum
+      </text>
+      {/* Subtítulo */}
+      <text
+        x="69" y="44"
+        fontFamily="DM Sans, sans-serif"
+        fontWeight="400"
+        fontSize="7.5"
+        letterSpacing="1.8"
+        fill="var(--text-muted, #6b8fae)"
+      >
+        INVENTARIO
+      </text>
+    </svg>
+  )
+}
+
+// ─── NAV ITEMS ───────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
     to: '/dashboard',
@@ -76,9 +130,7 @@ function NavItem({ to, label, icon }) {
       to={to}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-          isActive
-            ? 'glow-border'
-            : 'hover:bg-white/5'
+          isActive ? 'glow-border' : 'hover:bg-white/5'
         }`
       }
       style={({ isActive }) => ({
@@ -92,6 +144,7 @@ function NavItem({ to, label, icon }) {
   )
 }
 
+// ─── MAIN LAYOUT ─────────────────────────────────────────────────────────────
 export function MainLayout() {
   const { usuario, logout } = useAuth()
   const navigate = useNavigate()
@@ -112,21 +165,8 @@ export function MainLayout() {
         }}
       >
         {/* Logo */}
-        <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--accent)', boxShadow: '0 0 16px rgba(14,165,233,0.4)' }}
-            >
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-display font-bold" style={{ color: 'var(--text-primary)' }}>Gestión</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Panel de control</p>
-            </div>
-          </div>
+        <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          <MagnumLogo />
         </div>
 
         {/* Navigation */}

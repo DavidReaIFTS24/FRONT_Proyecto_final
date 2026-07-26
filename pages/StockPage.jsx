@@ -71,17 +71,87 @@ function AumentarStockModal({ stock, nombreProducto, onSubmit, onCancel, loading
   )
 }
 
+// ─── COMPONENTE: MODAL PARA DESCONTAR STOCK ──────────────────────────────────
+function DescontarStockModal({ stock, nombreProducto, onSubmit, onCancel, loading }) {
+  const [cantidad, setCantidad] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const cant = Number(cantidad)
+    if (!cantidad || isNaN(cant) || cant <= 0 || !Number.isInteger(cant)) {
+      setError('Ingresá un número entero mayor a 0')
+      return
+    }
+    if (cant > stock.cantidad) {
+      setError(`No podés descontar más de ${stock.cantidad} unidades`)
+      return
+    }
+    onSubmit(cant)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div
+        className="p-4 rounded-xl flex items-center justify-between"
+        style={{ background: 'var(--bg-primary)' }}
+      >
+        <div>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Producto</p>
+          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{nombreProducto}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Stock actual</p>
+          <p className="text-2xl font-mono font-bold" style={{ color: stock.cantidad <= stock.stockMinimo ? '#f97316' : '#4ade80' }}>
+            {stock.cantidad}
+          </p>
+        </div>
+      </div>
+      <Input
+        label="Cantidad a descontar *"
+        type="number"
+        min="1"
+        max={stock.cantidad}
+        step="1"
+        value={cantidad}
+        onChange={e => { setCantidad(e.target.value); setError('') }}
+        placeholder="Ej: 10"
+        error={error}
+        autoFocus
+      />
+      {cantidad && !error && Number(cantidad) > 0 && Number(cantidad) <= stock.cantidad && (
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Nuevo stock: <span className="font-mono font-bold" style={{ color: (stock.cantidad - Number(cantidad)) <= stock.stockMinimo ? '#f97316' : '#4ade80' }}>
+            {stock.cantidad - Number(cantidad)}
+          </span>
+        </p>
+      )}
+      <div className="flex justify-end gap-3 pt-2">
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button
+          type="submit"
+          loading={loading}
+          style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}
+        >
+          Confirmar egreso
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 // ─── COMPONENTE PRINCIPAL: PÁGINA DE STOCK ────────────────────────────────────
 export function StockPage() {
   // Extraemos funciones y datos del hook de stock (incluyendo la función 'aumentar' para la API).
-  const { stocks, bajoStock, cargando, error, refetch, aumentar } = useStock()
+  const { stocks, bajoStock, cargando, error, refetch, aumentar, descontar } = useStock()
   // Necesitamos los productos para poder mostrar el NOMBRE del producto en lugar de solo el ID.
   const { productos } = useProductos()
   const { toast, showToast, hideToast } = useToast()
 
   // Estados locales para la lógica de la UI: modales, buscador y filtros.
-  const [aumentando, setAumentando]       = useState(null) // Guarda el objeto de stock que se va a editar.
-  const [loadingAction, setLoadingAction] = useState(false) // Estado de carga para el botón del modal.
+  const [aumentando, setAumentando]       = useState(null)
+  const [descontando, setDescontando]     = useState(null) // Guarda el stock para el modal de egreso.
+  const [loadingAction, setLoadingAction] = useState(false)
   const [busqueda, setBusqueda]           = useState('') // Texto del buscador.
   const [soloAlerta, setSoloAlerta]       = useState(false) // Toggle para filtrar solo productos críticos.
 
@@ -107,13 +177,23 @@ export function StockPage() {
   const handleAumentar = async (cantidad) => {
     setLoadingAction(true)
     try {
-      await aumentar(aumentando.productoId, cantidad) // Ejecuta la petición al servidor.
-      setAumentando(null) // Cierra el modal.
+      await aumentar(aumentando.productoId, cantidad)
+      setAumentando(null)
       showToast(`Stock actualizado correctamente`)
     } catch (err) {
-      // Muestra el error que viene del backend o uno genérico.
       showToast(err.response?.data?.message || 'Error al actualizar stock', 'error')
-    } finally { setLoadingAction(false) } // Libera el estado de carga.
+    } finally { setLoadingAction(false) }
+  }
+
+  const handleDescontar = async (cantidad) => {
+    setLoadingAction(true)
+    try {
+      await descontar(descontando.productoId, cantidad)
+      setDescontando(null)
+      showToast(`Stock descontado correctamente`)
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error al descontar stock', 'error')
+    } finally { setLoadingAction(false) }
   }
 
   // Lógica visual: determina el color, etiqueta y variante de Badge según el nivel de stock.
@@ -192,7 +272,7 @@ export function StockPage() {
       ) : (
         <Table headers={['Producto', 'Stock actual', 'Mínimo', 'Nivel', 'Estado', 'Acciones']}>
           {stockFiltrado.map(s => {
-            const status = getStockStatus(s) // Obtenemos el estado visual para este ítem.
+            const status = getStockStatus(s)
             return (
               <tr key={s.id} className="table-row">
                 <Td>
@@ -201,14 +281,14 @@ export function StockPage() {
                       {s.producto?.nombre || '—'}
                     </p>
                     <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-                      {s.productoId?.slice(-8)} {/* Muestra solo el final del ID para limpieza visual */}
+                      {s.productoId?.slice(-8)}
                     </p>
                   </div>
                 </Td>
                 <Td>
                   <span
                     className="text-xl font-mono font-bold"
-                    style={{ color: status.color }} // El color refleja la gravedad del stock.
+                    style={{ color: status.color }}
                   >
                     {s.cantidad}
                   </span>
@@ -219,7 +299,6 @@ export function StockPage() {
                   </span>
                 </Td>
                 <Td>
-                  {/* Barra de progreso visual para ver el nivel de stock de un vistazo */}
                   <div className="w-24">
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
                       <div
@@ -230,23 +309,31 @@ export function StockPage() {
                   </div>
                 </Td>
                 <Td>
-                  {/* Mapeo de status label a variante de Badge de UI */}
                   <Badge label={status.label} variant={
                     status.label === 'normal' ? 'activo' :
                     status.label === 'bajo' ? 'pendiente' : 'cancelado'
                   } />
                 </Td>
                 <Td>
-                  {/* Botón para abrir el modal de ingreso de stock */}
-                  <Button
-                    variant="ghost"
-                    className="py-1 px-2 text-xs"
-                    onClick={() => setAumentando(s)}
-                    // Resaltamos el botón si el producto está en alerta.
-                    style={s.cantidad <= s.stockMinimo ? { color: '#fb923c', borderColor: 'rgba(249,115,22,0.3)' } : {}}
-                  >
-                    + Ingresar stock
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      className="py-1 px-2 text-xs"
+                      onClick={() => setAumentando(s)}
+                      style={s.cantidad <= s.stockMinimo ? { color: '#fb923c', borderColor: 'rgba(249,115,22,0.3)' } : {}}
+                    >
+                      + Ingresar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="py-1 px-2 text-xs"
+                      onClick={() => setDescontando(s)}
+                      disabled={s.cantidad === 0}
+                      style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}
+                    >
+                      − Descontar
+                    </Button>
+                  </div>
                 </Td>
               </tr>
             )
@@ -254,7 +341,6 @@ export function StockPage() {
         </Table>
       )}
 
-      {/* Renderizado condicional del Modal: Solo existe si 'aumentando' tiene datos de un producto */}
       {aumentando && (
         <Modal
           title="Ingreso de stock"
@@ -266,6 +352,22 @@ export function StockPage() {
             nombreProducto={aumentando.producto?.nombre || aumentando.productoId}
             onSubmit={handleAumentar}
             onCancel={() => setAumentando(null)}
+            loading={loadingAction}
+          />
+        </Modal>
+      )}
+
+      {descontando && (
+        <Modal
+          title="Egreso de stock"
+          onClose={() => setDescontando(null)}
+          maxWidth="max-w-sm"
+        >
+          <DescontarStockModal
+            stock={descontando}
+            nombreProducto={descontando.producto?.nombre || descontando.productoId}
+            onSubmit={handleDescontar}
+            onCancel={() => setDescontando(null)}
             loading={loadingAction}
           />
         </Modal>

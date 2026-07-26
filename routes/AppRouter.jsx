@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
+import { PublicRoute } from './PublicRoute'               // ← NUEVO
 import { MainLayout } from '../components/layout/MainLayout'
 import { LoginPage } from '../pages/LoginPage'
+import { LandingPage } from '../pages/LandingPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { ProductosPage } from '../pages/ProductosPage'
 import { CategoriasPage } from '../pages/CategoriasPage'
@@ -14,8 +16,15 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        {/* ── Públicas (redirigen al dashboard si ya hay sesión) ── */}
+        <Route path="/" element={
+          <PublicRoute><LandingPage /></PublicRoute>
+        } />
+        <Route path="/login" element={
+          <PublicRoute><LoginPage /></PublicRoute>
+        } />
 
+        {/* ── Protegidas (rutas originales sin cambios) ── */}
         <Route
           path="/"
           element={
@@ -24,7 +33,6 @@ export function AppRouter() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard"  element={<DashboardPage />} />
           <Route path="productos"  element={<ProductosPage />} />
           <Route path="categorias" element={<CategoriasPage />} />
@@ -41,7 +49,8 @@ export function AppRouter() {
           />
         </Route>
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* ── Fallback ─────────────────────────────────── */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )

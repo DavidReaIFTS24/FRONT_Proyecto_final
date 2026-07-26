@@ -182,7 +182,7 @@ export function DashboardPage() {
       {/* Saludo */}
       <div>
         <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>
-          Bienvenido, {usuario?.nombre?.split(' ')[0]} 👋
+          Bienvenido, {usuario?.nombre?.split(' ')[0]} 
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
           Resumen general del sistema

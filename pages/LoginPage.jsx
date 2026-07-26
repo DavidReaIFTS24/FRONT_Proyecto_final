@@ -68,7 +68,7 @@ export function LoginPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>
-            Gestión
+            Magnum
           </h1>
           <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
             Ingresá a tu panel de control
@@ -117,10 +117,28 @@ export function LoginPage() {
           </form>
         </div>
 
-        {/* Footer pequeño con versión del sistema */}
-        <p className="text-center mt-6 text-xs" style={{ color: 'var(--text-muted)' }}>
-          Sistema de gestión interno · v1.0
-        </p>
+        {/* Footer pequeño con versión del sistema y volver al inicio */}
+        <div className="text-center mt-6 flex flex-col items-center gap-2">
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-secondary)', fontSize: 13,
+              transition: 'color .15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+          >
+            <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Volver al inicio
+          </button>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Sistema de gestión interno · v1.0
+          </p>
+        </div>
       </div>
     </div>
   )
